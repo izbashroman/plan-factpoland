@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Доступы План-Факт</title>
+<style>
+:root{color-scheme:light;--canvas:#eaeaea;--text:#252423;--sub:#605e5c;--line:#d2d0ce;--blue:#118dff}
+*{box-sizing:border-box}
+body{margin:0;background:var(--canvas);color:var(--text);font:14px/1.45 "Segoe UI",-apple-system,Roboto,Arial,sans-serif;padding-inline:16px;padding-block:28px}
+.box{max-width:720px;margin:0 auto;background:#fff;border-top:4px solid var(--blue);box-shadow:0 2px 10px rgba(0,0,0,.1);padding:22px 24px;display:flex;flex-direction:column;gap:8px}
+h1{font-size:19px;margin:0}
+p{margin:0;color:var(--sub)}
+label{font-size:12px;font-weight:600;color:var(--sub);margin-top:6px}
+input,textarea{font:14px "Segoe UI",Arial,sans-serif;border:1px solid var(--line);padding:8px 9px;border-radius:2px;width:100%}
+textarea{font:12px ui-monospace,Consolas,monospace;min-height:110px}
+button{font:600 14px "Segoe UI",Arial,sans-serif;background:var(--blue);color:#fff;border:0;padding:9px 14px;border-radius:2px;cursor:pointer;justify-self:start;width:max-content}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:560px){.row{grid-template-columns:1fr}}
+ol{margin:4px 0 0;padding-left:20px;color:var(--sub)}
+</style>
+</head>
+<body>
+<div class="box">
+  <h1>Создать доступ к План-Факт</h1>
+  <p>Логин и пароль нигде не хранятся: они шифруют ссылку на Google Таблицу. Всё считается в вашем браузере, ничего не отправляется.</p>
+  <div class="row">
+    <div><label for="u">Логин</label><input id="u" autocomplete="off"></div>
+    <div><label for="p">Пароль (от 8 символов)</label><input id="p" type="text" autocomplete="off"></div>
+  </div>
+  <label for="url">Ссылка на опубликованную таблицу (xlsx)</label>
+  <input id="url" value="https://docs.google.com/spreadsheets/d/e/2PACX-1vQWDYOMO86mrg8IuSncfk5pp0y3CQ288WsIJXQsWvfnXSNqSRkY9PQfaFfTsdR81J20VdOyyGSGfeOY/pub?output=xlsx">
+  <button id="go">Создать строку доступа</button>
+  <label for="out">Строка для config.js</label>
+  <textarea id="out" readonly placeholder="Здесь появится строка"></textarea>
+  <ol>
+    <li>Скопируйте строку.</li>
+    <li>В репозитории откройте <b>config.js</b> → карандаш «Edit».</li>
+    <li>Вставьте строку внутрь <code>window.PF_USERS=[ … ]</code>, отделив запятой от соседних, и нажмите «Commit changes».</li>
+    <li>Через 1–2 минуты вход с этим логином заработает. Чтобы закрыть доступ — удалите строку.</li>
+  </ol>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const b=u=>btoa(String.fromCharCode(...u));
+$('go').onclick=async()=>{
+  const u=$('u').value.trim(),p=$('p').value,url=$('url').value.trim();
+  if(!u||p.length<8||!url){$('out').value='Заполните логин, пароль (от 8 символов) и ссылку';return}
+  const enc=new TextEncoder(),salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12)),i=150000;
+  const base=await crypto.subtle.importKey('raw',enc.encode(u.toLowerCase()+':'+p),'PBKDF2',false,['deriveKey']);
+  const key=await crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:i,hash:'SHA-256'},base,{name:'AES-GCM',length:256},false,['encrypt']);
+  const ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},key,enc.encode(JSON.stringify({url,name:'Google Таблица'}))));
+  $('out').value=JSON.stringify({s:b(salt),v:b(iv),i,c:b(ct)})+', // '+u.replace(/[^\w.@-]/g,'');
+  $('out').select();
+};
+</script>
+</body>
+</html>

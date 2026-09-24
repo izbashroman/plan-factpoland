@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>План-Факт Польша</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="config.js"></script>
+<style>
+:root{
+  color-scheme:light;
+  --canvas:#eaeaea; --tile:#ffffff; --bar:#1f1f1f; --text:#252423; --sub:#605e5c; --faint:#a19f9d; --grid:#edebe9; --line:#d2d0ce;
+  --fact:#118dff; --plan:#12239e; --plan-soft:#c8c6f0; --sel:#e66c37;
+  --good:#1aab40; --warn:#d9b300; --bad:#d64554; --good-bg:#e6f6ea; --warn-bg:#fbf5d9; --bad-bg:#fbe9eb;
+  --font:"Segoe UI","Segoe UI Web",-apple-system,BlinkMacSystemFont,Roboto,"Helvetica Neue",Arial,sans-serif;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--canvas);color:var(--text);font:13px/1.35 var(--font)}
+.top{background:var(--bar);color:#fff;display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;padding-inline:16px;padding-block:10px}
+.top h1{font-size:17px;font-weight:600;margin:0;letter-spacing:.1px}
+.top .per{color:#c8c6c4;font-size:12.5px}
+.top .sp{flex:1}
+.upl{font:600 12px var(--font);color:#fff;border:1px solid #605e5c;border-radius:2px;padding:6px 10px;cursor:pointer;background:#3b3a39}
+.upl:hover{background:#484644}
+.upl input{display:none}
+.page{padding-inline:12px;padding-block:10px 24px;display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:10px;max-width:1500px;margin:0 auto}
+.tile{background:var(--tile);border-radius:2px;box-shadow:0 1px 2px rgba(0,0,0,.08);padding:10px 12px;min-width:0;position:relative}
+.tile h3{margin:0 0 6px;font-size:13px;font-weight:600;color:var(--text)}
+.slicers{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:10px 22px;align-items:flex-end}
+.sl{display:flex;flex-direction:column;gap:3px}
+.sl label{font-size:11px;color:var(--sub);font-weight:600}
+.sl input,.sl select{font:13px var(--font);border:1px solid var(--line);border-radius:2px;padding:4px 6px;background:#fff;color:var(--text)}
+.chips{display:flex;border:1px solid var(--line);border-radius:2px;overflow:hidden}
+.chips button{border:0;border-right:1px solid var(--line);background:#fff;font:13px var(--font);padding:4px 12px;cursor:pointer;color:var(--text)}
+.chips button:last-child{border-right:0}
+.chips button.on{background:var(--fact);color:#fff}
+.clear{font:12px var(--font);color:var(--fact);background:none;border:0;cursor:pointer;padding:4px 0}
+.clock{font-size:12px;color:var(--sub);margin-left:auto;display:flex;gap:14px;align-items:center}
+.clock b{color:var(--text)}
+.prog{width:120px;height:6px;background:var(--grid);border-radius:3px;overflow:hidden}.prog i{display:block;height:100%;background:var(--sub)}
+button:focus-visible,input:focus-visible,select:focus-visible,.upl:focus-within{outline:2px solid var(--sel);outline-offset:1px}
+.kpi{grid-column:span 2;display:flex;flex-direction:column;gap:3px}
+.kpi .l{font-size:12px;color:var(--sub)}
+.kpi .v{font-size:28px;font-weight:600;letter-spacing:-.5px;line-height:1.1;white-space:nowrap;font-variant-numeric:tabular-nums}
+.kpi .d{display:flex;justify-content:space-between;gap:6px;font-size:12px;color:var(--sub);font-variant-numeric:tabular-nums}
+.kpi .d b{color:var(--text);font-weight:600}
+.kbar{height:4px;background:var(--grid);margin-top:4px;position:relative}
+.kbar i{position:absolute;inset:0 auto 0 0;background:var(--fact)}
+.kbar em{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--text)}
+.st{font-weight:700}.st.good{color:var(--good)}.st.warn{color:#9a7d00}.st.bad{color:var(--bad)}
+.w8{grid-column:span 8}.w6{grid-column:span 6}.w4{grid-column:span 4}.w12{grid-column:1/-1}.w5{grid-column:span 5}.w7{grid-column:span 7}
+@media (max-width:1100px){.kpi{grid-column:span 4}.w8,.w6,.w4,.w5,.w7{grid-column:1/-1}}
+@media (max-width:560px){.kpi{grid-column:span 6}.kpi .v{font-size:22px}}
+.lg{display:flex;gap:12px;font-size:11.5px;color:var(--sub);margin:-2px 0 4px}
+.lg span{display:inline-flex;align-items:center;gap:5px}
+.lg i{display:inline-block;width:10px;height:10px}
+svg text{font-family:var(--font);font-size:11px;fill:var(--sub)}
+.tip{position:absolute;pointer-events:none;background:#fff;border:1px solid var(--line);box-shadow:0 2px 8px rgba(0,0,0,.18);padding:6px 9px;font-size:12px;white-space:nowrap;z-index:9;border-radius:2px}
+.tip b{font-variant-numeric:tabular-nums}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:12.5px}
+th{font-weight:600;text-align:right;padding:5px 7px;border-bottom:1px solid var(--text);white-space:nowrap;font-size:12px}
+th.l,td.l{text-align:left}
+td{padding:4px 7px;border-bottom:1px solid var(--grid);text-align:right;white-space:nowrap}
+tbody tr{cursor:pointer}
+tbody tr:hover td{background:#f3f2f1}
+tr.sel td{background:#fdf0ea!important}
+tr.tot td{font-weight:700;border-top:1px solid var(--text);border-bottom:0;cursor:default}
+td.db{position:relative}
+td.db i{position:absolute;left:4px;top:5px;bottom:5px;background:rgba(17,141,255,.22);z-index:0}
+td.db span{position:relative;z-index:1}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:0}
+.neg{color:var(--bad)}
+td.nm{text-align:left;white-space:normal;min-width:200px;max-width:320px;font-size:12px}
+.muted{color:var(--faint)}
+.gate{position:fixed;inset:0;background:var(--canvas);display:grid;place-items:center;z-index:50;padding-inline:16px}
+.lg-box{background:#fff;box-shadow:0 2px 12px rgba(0,0,0,.12);padding:26px 28px;width:100%;max-width:340px;display:flex;flex-direction:column;gap:6px;border-top:4px solid var(--fact)}
+.lg-title{font-size:18px;font-weight:600}.lg-sub{color:var(--sub);margin-bottom:10px}
+.lg-box label{font-size:12px;color:var(--sub);font-weight:600;margin-top:4px}
+.lg-box input{font:14px var(--font);border:1px solid var(--line);padding:8px 9px;border-radius:2px}
+.lg-box button{margin-top:12px;font:600 14px var(--font);background:var(--fact);color:#fff;border:0;padding:9px;border-radius:2px;cursor:pointer}
+.lg-box button:disabled{opacity:.6}
+.lerr{color:var(--bad);font-size:12.5px;min-height:16px}
+body:not(.ready) .page{visibility:hidden}
+button.upl:disabled{opacity:.5}
+.toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 18px);transform:translateX(-50%);background:#252423;color:#fff;padding:8px 14px;border-radius:2px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.on{opacity:1}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+</head>
+<body>
+<div class="top">
+  <h1>План-Факт · Польша</h1>
+  <span class="per" id="per"></span>
+  <span class="sp"></span>
+  <button class="upl" id="reload">↻ Обновить данные</button><label class="upl" tabindex="0">Загрузить файл<input type="file" id="file" accept=".xlsx,.xls"></label><button class="upl" id="logout">Выйти</button>
+</div>
+<div class="gate" id="gate"><form class="lg-box" id="loginForm" autocomplete="on">
+  <div class="lg-title">План-Факт · Польша</div><div class="lg-sub">Вход для сотрудников</div>
+  <label for="lu">Логин</label><input id="lu" name="username" autocomplete="username" required>
+  <label for="lp">Пароль</label><input id="lp" name="password" type="password" autocomplete="current-password" required>
+  <button id="lbtn" type="submit">Войти</button><div class="lerr" id="lerr"></div></form></div>
+<div class="page">
+  <div class="tile slicers">
+    <div class="sl"><label for="rdate">Дата отчёта</label><input type="date" id="rdate"></div>
+    <div class="sl"><label>Канал</label><div class="chips" id="chan"><button data-c="all">Все</button><button data-c="Розница">Розница</button><button data-c="Опт">Опт</button></div></div>
+    <div class="sl"><label for="cat">Категория</label><select id="cat"></select></div>
+    <button class="clear" id="clr" hidden>✕ Сбросить фильтры</button>
+    <div class="clock" id="clock"></div>
+  </div>
+
+  <div class="tile kpi" id="kRev"></div>
+  <div class="tile kpi" id="kGp"></div>
+  <div class="tile kpi" id="kMg"></div>
+  <div class="tile kpi" id="kQty"></div>
+  <div class="tile kpi" id="kTr"></div>
+  <div class="tile kpi" id="kNeed"></div>
+
+  <div class="tile w8"><h3>Накопленная выручка без VAT</h3><div class="lg"><span><i style="background:var(--fact)"></i>Факт</span><span><i style="background:var(--plan)"></i>План (равномерно)</span><span><i style="background:repeating-linear-gradient(90deg,var(--fact) 0 3px,transparent 3px 5px)"></i>Тренд</span></div><div id="cCum"></div></div>
+  <div class="tile w4"><h3>Выполнение по каналам</h3><div class="lg"><span><i style="background:var(--plan-soft)"></i>План</span><span><i style="background:var(--fact)"></i>Факт</span></div><div id="cChan"></div><table id="tChan" style="margin-top:8px"></table></div>
+
+  <div class="tile w6"><h3>Тренд выполнения по категориям, % плана выручки</h3><div id="cCat"></div></div>
+  <div class="tile w6"><h3>Выручка по неделям</h3><div class="lg"><span><i style="background:var(--plan-soft)"></i>План</span><span><i style="background:var(--fact)"></i>Факт</span></div><div id="cWeek"></div></div>
+
+  <div class="tile w8"><h3>Категории</h3><div class="scroll"><table id="mCat"></table></div></div>
+  <div class="tile w4"><h3>Модели: топ и минус по вал. прибыли</h3><div class="scroll"><table id="mMod"></table></div></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+const $=id=>document.getElementById(id);
+let DATA=null;
+const S={chan:'all',cat:'',rdate:null};
+try{const s=JSON.parse(localStorage.getItem('pf.pbi')||'null');if(s&&s.chan)S.chan=s.chan}catch(e){}
+const save=()=>{try{localStorage.setItem('pf.pbi',JSON.stringify({chan:S.chan}))}catch(e){}};
+const nf=(v,d=0)=>v==null||!isFinite(v)?'—':v.toLocaleString('ru-RU',{minimumFractionDigits:d,maximumFractionDigits:d});
+const usd=v=>!isFinite(v)?'—':(v<0?'−$':'$')+nf(Math.abs(v));
+const k=v=>{const a=Math.abs(v);return (v<0?'−':'')+'$'+(a>=1e6?nf(a/1e6,2)+'M':a>=1e3?nf(a/1e3,a>=1e5?0:1)+'K':nf(a))};
+const pct=v=>v==null||!isFinite(v)?'—':nf(v*100,1)+'%';
+const pp=v=>!isFinite(v)?'—':(v>0?'+':v<0?'−':'')+nf(Math.abs(v*100),1)+' п.п.';
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const st=r=>r==null||!isFinite(r)?'':r>=1?'good':r>=.9?'warn':'bad';
+const stc=r=>({good:'var(--good)',warn:'var(--warn)',bad:'var(--bad)'}[st(r)]||'var(--faint)');
+const pad=n=>String(n).padStart(2,'0');
+const ymd=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+const pD=s=>{const [y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d)};
+const dm=d=>pad(d.getDate())+'.'+pad(d.getMonth()+1);
+function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('on'),2200)}
+
+function planOf(p,ch){if(ch==='Розница')return{q:p.qr,r:p.rr,g:p.rr*p.mr};if(ch==='Опт')return{q:p.qo,r:p.ro,g:p.ro*p.mo};return{q:p.q,r:p.rr+p.ro,g:p.g}}
+function model(){
+  const m0=pD(DATA.month),dim=new Date(m0.getFullYear(),m0.getMonth()+1,0).getDate(),m1=new Date(m0.getFullYear(),m0.getMonth(),dim);
+  let rd=S.rdate?pD(S.rdate):null;if(!rd){const ds=DATA.fact.map(f=>f[0]).filter(Boolean).sort();rd=ds.length?pD(ds[ds.length-1]):new Date()}
+  if(rd<m0)rd=m0;if(rd>m1)rd=m1;
+  const el=Math.round((rd-m0)/864e5)+1,share=el/dim;
+  const cats=DATA.plan.map(p=>p.cat);
+  const all=DATA.fact.map(f=>({d:f[0]?pD(f[0]):rd,name:f[1],cat:f[2],ch:f[3],q:f[4]||0,r:f[8]||0,gp:f[11]||0})).filter(f=>f.d>=m0&&f.d<=rd&&cats.includes(f.cat));
+  const inCh=f=>S.chan==='all'||f.ch===S.chan, inCat=f=>!S.cat||f.cat===S.cat;
+  return{m0,m1,dim,rd,el,share,left:dim-el,cats,all,rows:all.filter(f=>inCh(f)&&inCat(f)),inCh,inCat};
+}
+const sum=(a,k)=>a.reduce((s,x)=>s+(x[k]||0),0);
+function planTot(ch,cat){return DATA.plan.filter(p=>!cat||p.cat===cat).reduce((t,p)=>{const x=planOf(p,ch);t.q+=x.q;t.r+=x.r;t.g+=x.g;return t},{q:0,r:0,g:0})}
+
+function render(){
+  const M=model();
+  $('rdate').value=ymd(M.rd);$('rdate').min=ymd(M.m0);$('rdate').max=ymd(M.m1);
+  document.querySelectorAll('#chan button').forEach(b=>b.classList.toggle('on',b.dataset.c===S.chan));
+  $('cat').innerHTML='<option value="">Все категории</option>'+M.cats.map(c=>`<option${c===S.cat?' selected':''}>${esc(c)}</option>`).join('');
+  $('clr').hidden=!(S.cat||S.chan!=='all');
+  $('per').textContent=M.m0.toLocaleDateString('ru-RU',{month:'long',year:'numeric'})+' · данные на '+dm(M.rd)+' · '+(DATA.file||'');
+  $('clock').innerHTML=`<span>День <b>${M.el}</b> из ${M.dim}</span><span class="prog"><i style="width:${M.share*100}%"></i></span><span>осталось <b>${M.left}</b> дн.</span>`;
+  const P=planTot(S.chan,S.cat),F={q:sum(M.rows,'q'),r:sum(M.rows,'r'),g:sum(M.rows,'gp')};
+  const tr=v=>v/M.share;
+  const card=(id,l,v,plan,fact,planTxt)=>{const r=plan?tr(fact)/plan:null;$(id).innerHTML=`<div class="l">${l}</div><div class="v">${v}</div>
+    <div class="kbar" title="факт / план; метка — прошедшая часть месяца"><i style="width:${Math.min(100,plan?fact/plan*100:0)}%;background:${stc(r)}"></i><em style="left:${M.share*100}%"></em></div>
+    <div class="d"><span>План <b>${planTxt}</b></span><span>${pct(plan?fact/plan:null)}</span></div>
+    <div class="d"><span>Тренд</span><span class="st ${st(r)}">${pct(r)}</span></div>`};
+  card('kRev','Выручка без VAT',k(F.r),P.r,F.r,k(P.r));
+  card('kGp','Валовая прибыль',k(F.g),P.g,F.g,k(P.g));
+  card('kQty','Продано, шт',nf(F.q),P.q,F.q,nf(P.q));
+  const pm=P.r?P.g/P.r:0,fm=F.r?F.g/F.r:0;
+  $('kMg').innerHTML=`<div class="l">Маржа</div><div class="v">${pct(fm)}</div><div class="kbar"><i style="width:${Math.min(100,fm*100/Math.max(pm,.0001)*1)}%;background:${fm>=pm?'var(--good)':'var(--bad)'}"></i><em style="left:100%"></em></div>
+    <div class="d"><span>План <b>${pct(pm)}</b></span><span class="st ${fm>=pm?'good':'bad'}">${pp(fm-pm)}</span></div><div class="d"><span>&nbsp;</span></div>`;
+  const trR=tr(F.r);
+  $('kTr').innerHTML=`<div class="l">Прогноз выручки на конец месяца</div><div class="v">${k(trR)}</div><div class="kbar"><i style="width:${Math.min(100,P.r?trR/P.r*100:0)}%;background:${stc(P.r?trR/P.r:null)}"></i><em style="left:100%"></em></div>
+    <div class="d"><span>Разрыв с планом</span><span class="st ${trR>=P.r?'good':'bad'}">${k(trR-P.r)}</span></div><div class="d"><span>Прогноз ВП</span><b>${k(tr(F.g))}</b></div>`;
+  const need=M.left>0?Math.max(0,P.r-F.r)/M.left:0,pace=F.r/M.el;
+  $('kNeed').innerHTML=`<div class="l">Нужно в день до плана</div><div class="v">${k(need)}</div><div class="kbar"><i style="width:${Math.min(100,need?pace/need*100:100)}%;background:${pace>=need?'var(--good)':'var(--bad)'}"></i><em style="left:100%"></em></div>
+    <div class="d"><span>Текущий темп</span><b>${k(pace)}/день</b></div><div class="d"><span>Темп к нужному</span><span class="st ${pace>=need?'good':'bad'}">${pct(need?pace/need:null)}</span></div>`;
+  drawCum(M,P);drawChan(M);drawCat(M);drawWeek(M,P);tblCat(M);tblMod(M);
+}
+
+// ---------- SVG helpers
+function nice(v){if(v<=0)return 1;const e=Math.pow(10,Math.floor(Math.log10(v))),n=v/e;return (n<=1?1:n<=2?2:n<=2.5?2.5:n<=5?5:10)*e}
+function tip(el,html,x,y){let t=el.querySelector('.tip');if(!t){t=document.createElement('div');t.className='tip';el.appendChild(t)}t.innerHTML=html;t.hidden=false;const w=el.clientWidth;t.style.left=Math.max(0,Math.min(x+12,w-t.offsetWidth))+'px';t.style.top=Math.max(0,y-8)+'px'}
+function untip(el){const t=el.querySelector('.tip');if(t)t.hidden=true}
+function host(id){const el=$(id);el.style.position='relative';return el}
+function hover(el,sel,fn){el.querySelectorAll(sel).forEach(n=>{n.addEventListener('mousemove',e=>{const b=el.getBoundingClientRect();tip(el,fn(n),e.clientX-b.left,e.clientY-b.top)});n.addEventListener('mouseleave',()=>untip(el))})}
+const rbar=(x,y,w,h,fill,extra='')=>{if(h<.5||w<.5)return '';const r=Math.min(3,h,w/2);return `<path ${extra} d="M${x},${y+h} L${x},${y+r} Q${x},${y} ${x+r},${y} L${x+w-r},${y} Q${x+w},${y} ${x+w},${y+r} L${x+w},${y+h} Z" fill="${fill}"/>`};
+
+function drawCum(M,P){
+  const el=host('cCum'),W=Math.max(320,el.clientWidth),H=230,m={l:46,r:12,t:8,b:22},iw=W-m.l-m.r,ih=H-m.t-m.b;
+  const day=new Array(M.dim+1).fill(0);M.rows.forEach(f=>day[f.d.getDate()]+=f.r);
+  const cum=[0];for(let i=1;i<=M.dim;i++)cum[i]=cum[i-1]+day[i];
+  const trE=cum[M.el]/M.share,ym=nice(Math.max(P.r,trE,cum[M.el])*1.03);
+  const x=i=>m.l+i/M.dim*iw,y=v=>m.t+ih-v/ym*ih;
+  let g='';for(let j=0;j<=4;j++){const v=ym*j/4;g+=`<line x1="${m.l}" x2="${W-m.r}" y1="${y(v)}" y2="${y(v)}" stroke="var(--grid)"/><text x="${m.l-6}" y="${y(v)+4}" text-anchor="end">${k(v)}</text>`}
+  for(let i=1;i<=M.dim;i+=Math.max(1,Math.round(M.dim/10)))g+=`<text x="${x(i)}" y="${H-6}" text-anchor="middle">${i}</text>`;
+  let fp=`M${x(0)},${y(0)}`;for(let i=1;i<=M.el;i++)fp+=` L${x(i)},${y(cum[i])}`;
+  el.innerHTML=`<svg width="100%" viewBox="0 0 ${W} ${H}" role="img" aria-label="Накопленная выручка">${g}
+    <path d="${fp} L${x(M.el)},${y(0)} Z" fill="var(--fact)" opacity=".1"/>
+    <line x1="${x(0)}" y1="${y(0)}" x2="${x(M.dim)}" y2="${y(P.r)}" stroke="var(--plan)" stroke-width="2"/>
+    <line x1="${x(M.el)}" y1="${y(cum[M.el])}" x2="${x(M.dim)}" y2="${y(trE)}" stroke="var(--fact)" stroke-width="2" stroke-dasharray="4 3"/>
+    <path d="${fp}" fill="none" stroke="var(--fact)" stroke-width="2"/>
+    <circle cx="${x(M.el)}" cy="${y(cum[M.el])}" r="4" fill="var(--fact)" stroke="#fff" stroke-width="2"/>
+    <text x="${x(M.dim)-2}" y="${y(P.r)-6}" text-anchor="end" style="fill:var(--plan);font-weight:600">План ${k(P.r)}</text>
+    <text x="${x(M.dim)-2}" y="${y(trE)+(trE<P.r?15:-6)}" text-anchor="end" style="fill:var(--fact);font-weight:600">Тренд ${k(trE)}</text>
+    <line id="cx" y1="${m.t}" y2="${m.t+ih}" stroke="var(--sub)" opacity="0"/><rect id="ch" x="${m.l}" y="${m.t}" width="${iw}" height="${ih}" fill="transparent"/></svg>`;
+  const hit=el.querySelector('#ch'),cx=el.querySelector('#cx');
+  hit.addEventListener('mousemove',e=>{const r=el.querySelector('svg').getBoundingClientRect();let i=Math.round(((e.clientX-r.left)*W/r.width-m.l)/iw*M.dim);i=Math.max(1,Math.min(M.dim,i));
+    cx.setAttribute('x1',x(i));cx.setAttribute('x2',x(i));cx.setAttribute('opacity',.5);const pl=P.r*i/M.dim;
+    tip(el,`<div><b>${pad(i)}.${pad(M.m0.getMonth()+1)}</b></div><div>План: <b>${usd(pl)}</b></div>`+(i<=M.el?`<div>Факт: <b>${usd(cum[i])}</b> · ${pct(cum[i]/pl)}</div><div>За день: <b>${usd(day[i])}</b></div>`:''),x(i)*r.width/W,e.clientY-r.top)});
+  hit.addEventListener('mouseleave',()=>{cx.setAttribute('opacity',0);untip(el)});
+}
+function hbars(id,rows,opt){
+  const el=host(id),W=Math.max(280,el.clientWidth),rh=opt.rh||26,m={l:opt.l||120,r:56,t:4,b:18},H=m.t+m.b+rows.length*rh,iw=W-m.l-m.r;
+  const mx=opt.max(rows);const x=v=>m.l+Math.max(0,v)/mx*iw;
+  let g='';for(let j=0;j<=4;j++){const v=mx*j/4;g+=`<line x1="${x(v)}" x2="${x(v)}" y1="${m.t}" y2="${H-m.b}" stroke="var(--grid)"/><text x="${x(v)}" y="${H-5}" text-anchor="middle">${opt.axis(v)}</text>`}
+  if(opt.target!=null)g+=`<line x1="${x(opt.target)}" x2="${x(opt.target)}" y1="${m.t}" y2="${H-m.b}" stroke="var(--text)" stroke-dasharray="3 3"/>`;
+  rows.forEach((r,i)=>{const y0=m.t+i*rh;g+=`<text x="${m.l-6}" y="${y0+rh/2+4}" text-anchor="end" style="${r.sel?'fill:var(--sel);font-weight:700':'fill:var(--text)'}">${esc(r.label)}</text>`;
+    g+=opt.bars(r,y0,rh,x);g+=`<rect class="hb" data-i="${i}" x="0" y="${y0}" width="${W}" height="${rh}" fill="transparent" style="cursor:${opt.click?'pointer':'default'}"/>`});
+  el.innerHTML=`<svg width="100%" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opt.aria)}">${g}</svg>`;
+  hover(el,'.hb',n=>opt.tip(rows[+n.dataset.i]));
+  if(opt.click)el.querySelectorAll('.hb').forEach(n=>n.addEventListener('click',()=>opt.click(rows[+n.dataset.i])));
+}
+function drawChan(M){
+  const rows=['Розница','Опт'].map(ch=>{const P=planTot(ch,S.cat);const rs=M.all.filter(f=>f.ch===ch&&M.inCat(f));const fr=sum(rs,'r');return{label:ch,ch,p:P.r,f:fr,tr:fr/M.share,g:sum(rs,'gp'),sel:S.chan===ch}});
+  hbars('cChan',rows,{l:70,rh:48,aria:'Выполнение по каналам',max:rs=>nice(Math.max(...rs.map(r=>Math.max(r.p,r.tr)))*1.02),axis:k,
+    bars:(r,y0,rh,x)=>rbar(x(0),y0+8,x(r.p)-x(0),13,'var(--plan-soft)','transform="translate(0,0)"').replace('<path','<path')+rbar(x(0),y0+23,x(r.f)-x(0),13,'var(--fact)')+`<text x="${Math.max(x(r.f),x(r.p))+4}" y="${y0+33}" style="fill:var(--text);font-weight:600">${r.p?pct(r.tr/r.p):'нет плана'}</text>`,
+    tip:r=>`<b>${r.label}</b><div>План: <b>${usd(r.p)}</b></div><div>Факт: <b>${usd(r.f)}</b></div><div>Тренд: <b>${usd(r.tr)}</b> · ${r.p?pct(r.tr/r.p):'—'}</div><div>Вал. прибыль: <b>${usd(r.g)}</b> · ${pct(r.f?r.g/r.f:null)}</div>`,
+    click:r=>{S.chan=S.chan===r.ch?'all':r.ch;save();render()}});
+  const T={f:rows.reduce((s,r)=>s+r.f,0),g:rows.reduce((s,r)=>s+r.g,0)};
+  $('tChan').innerHTML=`<thead><tr><th class="l">Канал</th><th>Выручка</th><th>Доля</th><th>ВП</th><th>Маржа</th></tr></thead><tbody>`+rows.map(r=>`<tr data-ch="${r.ch}" class="${S.chan===r.ch?'sel':''}"><td class="l">${r.label}</td><td>${usd(r.f)}</td><td>${pct(T.f?r.f/T.f:null)}</td><td class="${r.g<0?'neg':''}">${usd(r.g)}</td><td>${pct(r.f?r.g/r.f:null)}</td></tr>`).join('')+`<tr class="tot"><td class="l">Итого</td><td>${usd(T.f)}</td><td></td><td>${usd(T.g)}</td><td>${pct(T.f?T.g/T.f:null)}</td></tr></tbody>`;
+  $('tChan').querySelectorAll('tr[data-ch]').forEach(tr=>tr.addEventListener('click',()=>{S.chan=S.chan===tr.dataset.ch?'all':tr.dataset.ch;save();render()}));
+}
+function drawCat(M){
+  const rows=M.cats.map(c=>{const P=planTot(S.chan,c);const rs=M.all.filter(f=>f.cat===c&&M.inCh(f));const fr=sum(rs,'r');return{label:c,p:P.r,f:fr,t:P.r?fr/M.share/P.r:null,sel:S.cat===c}}).filter(r=>r.p>0||r.f>0).sort((a,b)=>(b.t??-1)-(a.t??-1));
+  hbars('cCat',rows,{l:128,rh:22,aria:'Тренд по категориям',target:1,max:rs=>Math.max(1.2,Math.ceil(Math.max(...rs.map(r=>r.t||0))*10)/10),axis:v=>nf(v*100)+'%',
+    bars:(r,y0,rh,x)=>(r.t==null?`<text x="${x(0)+4}" y="${y0+rh/2+4}" class="muted">нет плана · ${k(r.f)}</text>`:rbar(x(0),y0+4,x(Math.min(r.t,99))-x(0),rh-8,r.sel?'var(--sel)':stc(r.t))+`<text x="${x(r.t)+4}" y="${y0+rh/2+4}" style="fill:var(--text)">${pct(r.t)}</text>`),
+    tip:r=>`<b>${esc(r.label)}</b><div>План: <b>${usd(r.p)}</b></div><div>Факт: <b>${usd(r.f)}</b> · ${pct(r.p?r.f/r.p:null)}</div><div>Тренд: <b>${pct(r.t)}</b></div><div class="muted">клик — фильтр по категории</div>`,
+    click:r=>{S.cat=S.cat===r.label?'':r.label;render()}});
+}
+function drawWeek(M,P){
+  const el=host('cWeek'),W=Math.max(300,el.clientWidth),H=200,m={l:46,r:8,t:8,b:30},iw=W-m.l-m.r,ih=H-m.t-m.b;
+  const wk=[];let d=new Date(M.m0);while(d<=M.m1){const s=new Date(d),e=new Date(s);e.setDate(s.getDate()+(6-(s.getDay()+6)%7));if(e>M.m1)e.setTime(M.m1.getTime());const days=Math.round((e-s)/864e5)+1;
+    const rs=M.rows.filter(f=>f.d>=s&&f.d<=e);wk.push({s,e,days,p:P.r*days/M.dim,f:sum(rs,'r'),g:sum(rs,'gp'),fut:s>M.rd,cur:M.rd>=s&&M.rd<=e});d=new Date(e);d.setDate(d.getDate()+1)}
+  const ym=nice(Math.max(...wk.map(w=>Math.max(w.p,w.f)))*1.08),y=v=>m.t+ih-v/ym*ih,band=iw/wk.length,bw=Math.min(30,(band-14)/2);
+  let g='';for(let j=0;j<=4;j++){const v=ym*j/4;g+=`<line x1="${m.l}" x2="${W-m.r}" y1="${y(v)}" y2="${y(v)}" stroke="var(--grid)"/><text x="${m.l-6}" y="${y(v)+4}" text-anchor="end">${k(v)}</text>`}
+  wk.forEach((w,i)=>{const cx=m.l+band*i+band/2;g+=rbar(cx-bw-1,y(w.p),bw,y(0)-y(w.p),'var(--plan-soft)');if(!w.fut){g+=rbar(cx+1,y(w.f),bw,y(0)-y(w.f),'var(--fact)');g+=`<text x="${cx+1+bw/2}" y="${y(w.f)-4}" text-anchor="middle" style="fill:${stc(w.p?w.f/w.p:null)};font-weight:700">${pct(w.p?w.f/w.p:null).replace(',0%','%')}</text>`}
+    g+=`<text x="${cx}" y="${H-16}" text-anchor="middle" style="${w.cur?'fill:var(--text);font-weight:700':''}">Нед ${i+1}</text><text x="${cx}" y="${H-4}" text-anchor="middle" style="font-size:10px">${dm(w.s)}–${dm(w.e)}</text>`;
+    g+=`<rect class="hb" data-i="${i}" x="${m.l+band*i}" y="${m.t}" width="${band}" height="${ih}" fill="transparent"/>`});
+  el.innerHTML=`<svg width="100%" viewBox="0 0 ${W} ${H}" role="img" aria-label="Выручка по неделям">${g}<line x1="${m.l}" x2="${W-m.r}" y1="${y(0)}" y2="${y(0)}" stroke="var(--line)"/></svg>`;
+  hover(el,'.hb',n=>{const w=wk[+n.dataset.i];return `<b>Неделя ${+n.dataset.i+1}</b> · ${dm(w.s)}–${dm(w.e)}<div>План: <b>${usd(w.p)}</b></div><div>Факт: <b>${w.fut?'—':usd(w.f)}</b>${w.fut?'':' · '+pct(w.p?w.f/w.p:null)}</div>${w.fut?'':`<div>Вал. прибыль: <b>${usd(w.g)}</b></div>`}`});
+}
+function tblCat(M){
+  const rows=M.cats.map(c=>{const P=planTot(S.chan,c);const rs=M.all.filter(f=>f.cat===c&&M.inCh(f));const fr=sum(rs,'r'),fg=sum(rs,'gp');return{c,pr:P.r,fr,trr:P.r?fr/M.share/P.r:null,pg:P.g,fg,trg:P.g>0?fg/M.share/P.g:null,pm:P.r?P.g/P.r:null,fm:fr?fg/fr:null}}).filter(r=>r.pr||r.fr);
+  const T=rows.reduce((t,r)=>(t.pr+=r.pr,t.fr+=r.fr,t.pg+=r.pg,t.fg+=r.fg,t),{pr:0,fr:0,pg:0,fg:0});
+  const mx=Math.max(...rows.map(r=>r.fr),1);
+  const tc=r=>r==null?'<span class="muted">—</span>':`<span class="dot" style="background:${stc(r)}"></span>${pct(r)}`;
+  $('mCat').innerHTML=`<thead><tr><th class="l">Категория</th><th>План выр.</th><th>Факт выр.</th><th>Тренд</th><th>План ВП</th><th>Факт ВП</th><th>Тренд</th><th>Маржа план</th><th>Маржа факт</th><th>Δ</th></tr></thead><tbody>`+
+    rows.map(r=>`<tr data-c="${esc(r.c)}" class="${S.cat===r.c?'sel':''}"><td class="l">${esc(r.c)}</td><td>${usd(r.pr)}</td><td class="db"><i style="width:calc(${r.fr/mx*100}% - 8px)"></i><span>${usd(r.fr)}</span></td><td>${tc(r.trr)}</td><td class="${r.pg<0?'neg':''}">${usd(r.pg)}</td><td class="${r.fg<0?'neg':''}">${usd(r.fg)}</td><td>${tc(r.trg)}</td><td>${pct(r.pm)}</td><td>${r.fr?pct(r.fm):'—'}</td><td class="${r.fm!=null&&r.pm!=null&&r.fm<r.pm?'neg':''}">${r.fm!=null&&r.pm!=null?pp(r.fm-r.pm):'—'}</td></tr>`).join('')+
+    `<tr class="tot"><td class="l">Итого</td><td>${usd(T.pr)}</td><td>${usd(T.fr)}</td><td>${tc(T.pr?T.fr/M.share/T.pr:null)}</td><td>${usd(T.pg)}</td><td>${usd(T.fg)}</td><td>${tc(T.pg?T.fg/M.share/T.pg:null)}</td><td>${pct(T.pr?T.pg/T.pr:null)}</td><td>${pct(T.fr?T.fg/T.fr:null)}</td><td>${T.fr&&T.pr?pp(T.fg/T.fr-T.pg/T.pr):'—'}</td></tr></tbody>`;
+  $('mCat').querySelectorAll('tbody tr[data-c]').forEach(tr=>tr.addEventListener('click',()=>{S.cat=S.cat===tr.dataset.c?'':tr.dataset.c;render()}));
+}
+function tblMod(M){
+  const by={};M.rows.forEach(f=>{const x=by[f.name]=by[f.name]||{n:f.name,q:0,r:0,g:0};x.q+=f.q;x.r+=f.r;x.g+=f.gp});
+  const a=Object.values(by),top=a.filter(x=>x.g>0).sort((p,q)=>q.g-p.g).slice(0,7),neg=a.filter(x=>x.g<-.5).sort((p,q)=>p.g-q.g).slice(0,7);
+  const row=x=>`<tr style="cursor:default"><td class="nm">${esc(x.n)}</td><td>${nf(x.q)}</td><td class="${x.g<0?'neg':''}">${usd(x.g)}</td><td class="${x.g<0?'neg':''}">${pct(x.r?x.g/x.r:null)}</td></tr>`;
+  $('mMod').innerHTML=`<thead><tr><th class="l">Модель</th><th>Шт</th><th>ВП</th><th>Маржа</th></tr></thead><tbody>${top.map(row).join('')}`+(neg.length?`<tr style="cursor:default"><td colspan="4" class="l" style="padding-top:10px;font-weight:600;color:var(--bad)">В минус · ${a.filter(x=>x.g<-.5).length} моделей на ${usd(sum(a.filter(x=>x.g<-.5),'g'))}</td></tr>${neg.map(row).join('')}`:'')+'</tbody>';
+}
+
+// ---------- events / file
+$('chan').addEventListener('click',e=>{const b=e.target.closest('button[data-c]');if(!b)return;S.chan=b.dataset.c;save();render()});
+$('cat').addEventListener('change',e=>{S.cat=e.target.value;render()});
+$('rdate').addEventListener('change',e=>{S.rdate=e.target.value||null;render()});
+$('clr').addEventListener('click',()=>{S.cat='';S.chan='all';save();render()});
+function parseWB(buf,name){
+  const wb=XLSX.read(new Uint8Array(buf),{type:'array'});
+    const sd=v=>{if(typeof v!=='number'||v<20000)return null;const d=new Date(Math.round((v-25569)*864e5));return d.getUTCFullYear()+'-'+pad(d.getUTCMonth()+1)+'-'+pad(d.getUTCDate())};
+    const pl=wb.Sheets['План по категориям'],fs=wb.Sheets['Факт продаж'];if(!pl||!fs)throw new Error('нет листов «План по категориям» / «Факт продаж»');
+    const Pr=XLSX.utils.sheet_to_json(pl,{header:1,raw:true,defval:null});const n=v=>typeof v==='number'?v:0;
+    const month=(Pr[1]&&sd(Pr[1][1]))||((DATA&&DATA.month)||ymd(new Date(new Date().getFullYear(),new Date().getMonth(),1)));
+    let h=Pr.findIndex(r=>r&&r[0]==='Категория');const plan=[];for(let i=h+1;i<Pr.length;i++){const r=Pr[i];if(!r||!r[0]||/итого/i.test(r[0]))break;plan.push({cat:r[0],q:n(r[4]),qr:n(r[6]),qo:n(r[7]),rr:n(r[8]),ro:n(r[9]),g:n(r[11]),mr:n(r[12]),mo:n(r[13])})}
+    if(plan.every(p=>!p.q&&!p.rr&&!p.ro))throw new Error('в плане нет значений — откройте файл в Excel и сохраните');
+    const Fr=XLSX.utils.sheet_to_json(fs,{header:1,raw:true,defval:null});const fact=[];
+    for(let i=3;i<Fr.length;i++){const r=Fr[i];if(!r||!r[1])continue;const q=n(r[4]),rev=typeof r[6]==='number'?r[6]:q*n(r[5]),tax=n(r[7]),cost=n(r[9]);
+      fact.push([sd(r[0]),String(r[1]),r[2]||'Прочее',r[3]||'Розница',q,n(r[5]),rev,tax,typeof r[8]==='number'?r[8]:rev-tax,cost,cost+tax,typeof r[11]==='number'?r[11]:rev-tax-cost])}
+    const pf=wb.Sheets['План-Факт'];const d2=pf&&pf.D2&&sd(pf.D2.v);
+    DATA={month,plan,fact,file:name};S.rdate=d2||null;S.cat='';document.body.classList.add('ready');render();return fact.length;
+}
+function loadFile(file){
+  if(typeof XLSX==='undefined'){toast('Нет интернета — не загрузилась библиотека Excel');return}
+  const rd=new FileReader();rd.onload=e=>{try{const n=parseWB(e.target.result,file.name);toast(`Загружено: ${n} строк факта`)}catch(err){toast('Не удалось прочитать файл: '+err.message)}};rd.readAsArrayBuffer(file);
+}
+$('file').addEventListener('change',e=>{if(e.target.files[0])loadFile(e.target.files[0]);e.target.value=''});
+let rt;window.addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(()=>{if(DATA)render()},120)});
+
+// ---------- login: логин+пароль расшифровывают ссылку на таблицу (AES-GCM, PBKDF2)
+const enc=new TextEncoder(),dec=new TextDecoder();
+const b64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+async function keyFrom(login,pass,salt,iter){const base=await crypto.subtle.importKey('raw',enc.encode(login.trim().toLowerCase()+':'+pass),'PBKDF2',false,['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:iter,hash:'SHA-256'},base,{name:'AES-GCM',length:256},false,['decrypt'])}
+async function unlock(login,pass){
+  for(const u of (window.PF_USERS||[])){try{const key=await keyFrom(login,pass,b64(u.s),u.i||150000);
+    const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:b64(u.v)},key,b64(u.c));return JSON.parse(dec.decode(pt))}catch(e){}}
+  return null;
+}
+let CFG=null;
+async function fetchSheet(){
+  if(!CFG||!CFG.url)return;
+  $('reload').disabled=true;$('per').textContent='Загрузка данных…';
+  try{
+    if(typeof XLSX==='undefined')throw new Error('не загрузилась библиотека Excel');
+    const u=CFG.url+(CFG.url.includes('?')?'&':'?')+'_='+Date.now();
+    const r=await fetch(u,{cache:'no-store',redirect:'follow'});if(!r.ok)throw new Error('HTTP '+r.status);
+    const n=parseWB(await r.arrayBuffer(),CFG.name||'Google Таблица');toast(`Обновлено: ${n} строк факта`);
+  }catch(err){$('per').textContent='';toast('Не удалось загрузить таблицу: '+err.message+'. Можно загрузить файл вручную.')}
+  $('reload').disabled=false;
+}
+$('reload').addEventListener('click',fetchSheet);
+$('logout').addEventListener('click',()=>{try{sessionStorage.removeItem('pf.cfg')}catch(e){}location.reload()});
+$('loginForm').addEventListener('submit',async e=>{e.preventDefault();$('lerr').textContent='';$('lbtn').disabled=true;
+  const cfg=await unlock($('lu').value,$('lp').value);$('lbtn').disabled=false;
+  if(!cfg){$('lerr').textContent='Неверный логин или пароль';return}
+  CFG=cfg;try{sessionStorage.setItem('pf.cfg',JSON.stringify(cfg))}catch(e){}
+  $('gate').hidden=true;fetchSheet()});
+try{const c=JSON.parse(sessionStorage.getItem('pf.cfg')||'null');if(c&&c.url){CFG=c;$('gate').hidden=true;fetchSheet()}}catch(e){}
+if(!crypto||!crypto.subtle)$('lerr').textContent='Откройте страницу по https — вход не работает по http';
+})();
+</script>
+
+</body>
+</html>
