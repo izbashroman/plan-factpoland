@@ -3,13 +3,14 @@
 Дашборд план-факта (стиль Power BI). Данные берутся из опубликованной Google Таблицы, вход — по логину и паролю.
 
 ## Файлы
-- `index.html` — дашборд с окном входа.
+- `index.html` — дашборд с окном входа; вкладки «План-Факт» и «Продажи с налогами».
+- `sales.html` — «Продажи с налогами» (загрузка отчёта 1С, налоги, копирование для файла плана); открывается во вкладке.
 - `config.js` — список доступов (зашифрованные строки, по одной на пользователя).
 - `setup.html` — создать строку доступа для нового логина/пароля.
 
 ## Как выложить на GitHub Pages
 1. github.com → **New repository** → имя, например `plan-fakt` → **Public** → Create.
-2. **Add file → Upload files** → перетащите `index.html`, `config.js`, `setup.html`, `README.md` → **Commit changes**.
+2. **Add file → Upload files** → перетащите `index.html`, `sales.html`, `config.js`, `setup.html`, `README.md` → **Commit changes**.
 3. **Settings → Pages** → Source: *Deploy from a branch* → Branch: `main`, папка `/ (root)` → **Save**.
 4. Через 1–2 минуты сайт доступен по адресу `https://<ваш-логин>.github.io/plan-fakt/`.
 

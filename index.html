@@ -109,15 +109,23 @@ details.tbl{margin-top:8px}details.tbl summary{cursor:pointer;color:var(--fact);
 .toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 18px);transform:translateX(-50%);background:#252423;color:#fff;padding:8px 14px;border-radius:2px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none}
 .toast.on{opacity:1}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+.vt{display:flex;gap:2px}
+.vt button{font:600 12.5px var(--font);color:#c8c6c4;background:transparent;border:0;border-bottom:2px solid transparent;padding:6px 10px;cursor:pointer}
+.vt button.on{color:#fff;border-bottom-color:#118dff}
+.vt button:hover{color:#fff}
+.stab iframe{display:block;width:100%;height:calc(100vh - 52px);height:calc(100dvh - 52px);border:0;background:var(--canvas)}
+body.st .page,body.st .pfo{display:none!important}
 </style>
-
 </head>
 <body>
+
+
 <div class="top">
-  <h1>План-Факт · Польша</h1>
-  <span class="per" id="per"></span>
+  <h1>Польша</h1>
+  <nav class="vt" id="vt"><button data-t="pf" class="on">План-Факт</button><button data-t="st">Продажи с налогами</button></nav>
+  <span class="per pfo" id="per"></span>
   <span class="sp"></span>
-  <button class="upl" id="reload">↻ Обновить данные</button><label class="upl" tabindex="0">Загрузить файл<input type="file" id="file" accept=".xlsx,.xls"></label><button class="upl" id="logout">Выйти</button>
+  <button class="upl pfo" id="reload">↻ Обновить данные</button><label class="upl pfo" tabindex="0">Загрузить файл<input type="file" id="file" accept=".xlsx,.xls"></label><button class="upl" id="logout">Выйти</button>
 </div>
 <div class="gate" id="gate"><form class="lg-box" id="loginForm" autocomplete="on">
   <div class="lg-title">План-Факт · Польша</div><div class="lg-sub">Вход для сотрудников</div>
@@ -147,6 +155,7 @@ details.tbl{margin-top:8px}details.tbl summary{cursor:pointer;color:var(--fact);
   <div class="tile w7"><h3>Покупатели и площадки</h3><div class="lg"><span><i style="background:#9ecbff"></i>Выручка без VAT</span><span><i style="background:var(--plan)"></i>в т.ч. вал. прибыль</span></div><div id="cBuy"></div></div>
   <div class="tile w5"><h3>Модели: вал. прибыль</h3><div class="lg"><span><i style="background:var(--good)"></i>Топ-8</span><span><i style="background:var(--bad)"></i>В минус</span></div><div id="cMod"></div></div>
 </div>
+<div class="stab" id="stab" hidden><iframe id="sframe" title="Продажи с налогами" allow="clipboard-write"></iframe></div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -476,6 +485,15 @@ $('loginForm').addEventListener('submit',async e=>{e.preventDefault();$('lerr').
   $('gate').hidden=true;fetchSheet()});
 try{const c=JSON.parse(sessionStorage.getItem('pf.cfg')||'null');if(c&&c.url){CFG=c;$('gate').hidden=true;fetchSheet()}}catch(e){}
 if(!crypto||!crypto.subtle)$('lerr').textContent='Откройте страницу по https — вход не работает по http';
+
+// ---------- вкладки
+function fitFrame(){$('sframe').style.height=Math.max(400,innerHeight-document.querySelector('.top').offsetHeight)+'px'}
+window.addEventListener('resize',()=>{if(!$('stab').hidden)fitFrame()});
+function setTab(t){document.body.classList.toggle('st',t==='st');$('stab').hidden=t!=='st';
+  document.querySelectorAll('#vt button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
+  if(t==='st'){fitFrame();if(!$('sframe').getAttribute('src'))$('sframe').src='sales.html'}if(t==='pf'&&DATA)render();try{sessionStorage.setItem('pf.tab',t)}catch(e){}}
+$('vt').addEventListener('click',e=>{const b=e.target.closest('button[data-t]');if(b)setTab(b.dataset.t)});
+try{if(sessionStorage.getItem('pf.tab')==='st')setTab('st')}catch(e){}
 })();
 </script>
 
