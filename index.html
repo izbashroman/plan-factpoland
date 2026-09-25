@@ -114,7 +114,10 @@ details.tbl{margin-top:8px}details.tbl summary{cursor:pointer;color:var(--fact);
 .vt button.on{color:#fff;border-bottom-color:#118dff}
 .vt button:hover{color:#fff}
 .stab iframe{display:block;width:100%;height:calc(100vh - 52px);height:calc(100dvh - 52px);border:0;background:var(--canvas)}
-body.st .page,body.st .pfo{display:none!important}
+body.st .page,body.st .pfo,body.pl .page:not(.ppage){display:none!important}
+.pt-v{font-size:26px;font-weight:600;letter-spacing:-.5px;font-variant-numeric:tabular-nums;line-height:1.15}
+.pt-s{font-size:12px;color:var(--sub);display:flex;gap:12px;flex-wrap:wrap;margin-top:3px;font-variant-numeric:tabular-nums}.pt-s b{color:var(--text)}
+.mix{display:flex;height:8px;margin-top:8px;background:var(--grid)}.mix i{display:block;height:100%}
 </style>
 </head>
 <body>
@@ -122,7 +125,7 @@ body.st .page,body.st .pfo{display:none!important}
 
 <div class="top">
   <h1>Польша</h1>
-  <nav class="vt" id="vt"><button data-t="pf" class="on">План-Факт</button><button data-t="st">Продажи с налогами</button></nav>
+  <nav class="vt" id="vt"><button data-t="pf" class="on">План-Факт</button><button data-t="pl">План на месяц</button><button data-t="st">Продажи с налогами</button></nav>
   <span class="per pfo" id="per"></span>
   <span class="sp"></span>
   <button class="upl pfo" id="reload">↻ Обновить данные</button><label class="upl pfo" tabindex="0">Загрузить файл<input type="file" id="file" accept=".xlsx,.xls"></label><button class="upl" id="logout">Выйти</button>
@@ -154,6 +157,17 @@ body.st .page,body.st .pfo{display:none!important}
     <details class="tbl"><summary>Показать таблицей</summary><div class="scroll"><table id="mCat"></table></div></details></div>
   <div class="tile w7"><h3>Покупатели и площадки</h3><div class="lg"><span><i style="background:#9ecbff"></i>Выручка без VAT</span><span><i style="background:var(--plan)"></i>в т.ч. вал. прибыль</span></div><div id="cBuy"></div></div>
   <div class="tile w5"><h3>Модели: вал. прибыль</h3><div class="lg"><span><i style="background:var(--good)"></i>Топ-8</span><span><i style="background:var(--bad)"></i>В минус</span></div><div id="cMod"></div></div>
+</div>
+<div class="page ppage" id="ppage" hidden>
+  <div class="tile slicers">
+    <div class="sl"><label>Источник</label><div class="chips" id="psrc"><button data-s="0" class="on">Общий</button><button data-s="1">Склад</button><button data-s="2">Транзит</button></div></div>
+    <div class="sl"><label>Канал</label><div class="chips" id="pch"><button data-c="all" class="on">Все</button><button data-c="r">Розница</button><button data-c="o">Опт</button></div></div>
+    <div class="clock" id="pinfo"></div>
+  </div>
+  <div class="tile w12 tot"><div class="tot-grid" id="pTot"></div></div>
+  <div class="tile w7"><h3>Выручка плана по категориям</h3><div class="lg"><span><i style="background:#118dff"></i>Розница</span><span><i style="background:#12239e"></i>Опт</span></div><div id="pBars"></div></div>
+  <div class="tile w5"><h3>Розница и опт</h3><table id="pCh"></table><p class="muted" id="pNote" style="margin:10px 0 0;font-size:12px"></p></div>
+  <div class="tile w12"><h3>План по категориям</h3><div class="scroll"><table id="pTbl"></table></div></div>
 </div>
 <div class="stab" id="stab" hidden><iframe id="sframe" title="Продажи с налогами" allow="clipboard-write"></iframe></div>
 <div class="toast" id="toast"></div>
@@ -441,18 +455,19 @@ function parseWB(buf,name){
     const month=(Pr[1]&&sd(Pr[1][1]))||((DATA&&DATA.month)||ymd(new Date(new Date().getFullYear(),new Date().getMonth(),1)));
     let h=Pr.findIndex(r=>r&&r[0]==='Категория');const plan=[];for(let i=h+1;i<Pr.length;i++){const r=Pr[i];if(!r||!r[0]||/итого/i.test(r[0]))break;plan.push({cat:r[0],q:n(r[4]),qr:n(r[6]),qo:n(r[7]),rr:n(r[8]),ro:n(r[9]),g:n(r[11]),mr:n(r[12]),mo:n(r[13])})}
     if(plan.every(p=>!p.q&&!p.rr&&!p.ro))throw new Error('в плане нет значений — откройте файл в Excel и сохраните');
+    const blocks=[];Pr.forEach((r,i)=>{if(r&&r[0]==='Категория'){let t='';for(let j=i-1;j>=0;j--){if(Pr[j]&&Pr[j][0]){t=String(Pr[j][0]);break}}const rows=[];for(let m=i+1;m<Pr.length;m++){const x=Pr[m];if(!x||!x[0]||/итого/i.test(x[0]))break;rows.push({cat:String(x[0]),sq:n(x[1]),sc:n(x[2]),q:n(x[4]),sp:n(x[5]),qr:n(x[6]),qo:n(x[7]),rr:n(x[8]),ro:n(x[9]),r:n(x[10]),g:n(x[11]),mr:n(x[12]),mo:n(x[13])})}blocks.push({title:t,rows})}});
     const Fr=XLSX.utils.sheet_to_json(fs,{header:1,raw:true,defval:null});const fact=[];
     for(let i=3;i<Fr.length;i++){const r=Fr[i];if(!r||!r[1])continue;const q=n(r[4]),rev=typeof r[6]==='number'?r[6]:q*n(r[5]),tax=n(r[7]),cost=n(r[9]);
       fact.push([sd(r[0]),String(r[1]),r[2]||'Прочее',r[3]||'Розница',q,n(r[5]),rev,tax,typeof r[8]==='number'?r[8]:rev-tax,cost,cost+tax,typeof r[11]==='number'?r[11]:rev-tax-cost,r[12]?String(r[12]):'',r[13]?String(r[13]):'',n(r[14])])}
     const pf=wb.Sheets['План-Факт'];const d2=pf&&pf.D2&&sd(pf.D2.v);
-    DATA={month,plan,fact,file:name};S.rdate=d2||null;S.cat='';document.body.classList.add('ready');render();return fact.length;
+    DATA={month,plan,fact,blocks,file:name};S.rdate=d2||null;S.cat='';document.body.classList.add('ready');render();if(!$('ppage').hidden)drawPlan();return fact.length;
 }
 function loadFile(file){
   if(typeof XLSX==='undefined'){toast('Нет интернета — не загрузилась библиотека Excel');return}
   const rd=new FileReader();rd.onload=e=>{try{const n=parseWB(e.target.result,file.name);toast(`Загружено: ${n} строк факта`)}catch(err){toast('Не удалось прочитать файл: '+err.message)}};rd.readAsArrayBuffer(file);
 }
 $('file').addEventListener('change',e=>{if(e.target.files[0])loadFile(e.target.files[0]);e.target.value=''});
-let rt;window.addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(()=>{if(DATA)render()},120)});
+let rt;window.addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(()=>{if(DATA){render();if(!$('ppage').hidden)drawPlan()}},120)});
 
 // ---------- login: логин+пароль расшифровывают ссылку на таблицу (AES-GCM, PBKDF2)
 const enc=new TextEncoder(),dec=new TextDecoder();
@@ -486,14 +501,55 @@ $('loginForm').addEventListener('submit',async e=>{e.preventDefault();$('lerr').
 try{const c=JSON.parse(sessionStorage.getItem('pf.cfg')||'null');if(c&&c.url){CFG=c;$('gate').hidden=true;fetchSheet()}}catch(e){}
 if(!crypto||!crypto.subtle)$('lerr').textContent='Откройте страницу по https — вход не работает по http';
 
+
+// ---------- план на месяц
+const PS={src:0,ch:'all'};const CR='#118dff',CO='#12239e';
+function planRows(){const b=(DATA.blocks&&DATA.blocks[PS.src])||(DATA.blocks&&DATA.blocks[0]);
+  const src=b?b.rows:DATA.plan.map(p=>({cat:p.cat,sq:0,sc:0,q:p.q,sp:0,qr:p.qr,qo:p.qo,rr:p.rr,ro:p.ro,r:p.rr+p.ro,g:p.g,mr:p.mr,mo:p.mo}));
+  return src.map(x=>{const gr=x.rr*x.mr,go=x.ro*x.mo;const v=PS.ch==='r'?{q:x.qr,r:x.rr,g:gr}:PS.ch==='o'?{q:x.qo,r:x.ro,g:go}:{q:x.q,r:x.r,g:x.g};return{...x,gr,go,...v}})}
+function drawPlan(){
+  if(!DATA)return;const R=planRows(),T={q:sum(R,'q'),r:sum(R,'r'),g:sum(R,'g'),rr:sum(R,'rr'),ro:sum(R,'ro'),qr:sum(R,'qr'),qo:sum(R,'qo'),gr:sum(R,'gr'),go:sum(R,'go'),sq:sum(R,'sq'),sc:sum(R,'sc')};
+  const [y,m]=DATA.month.split('-').map(Number);const days=new Date(y,m,0).getDate();
+  const mn=new Date(y,m-1,1).toLocaleDateString('ru-RU',{month:'long',year:'numeric'});
+  $('pinfo').innerHTML=`<span>${mn}</span><span><b>${days}</b> дн.</span>`;
+  document.querySelectorAll('#psrc button').forEach(b=>b.classList.toggle('on',+b.dataset.s===PS.src));
+  document.querySelectorAll('#pch button').forEach(b=>b.classList.toggle('on',b.dataset.c===PS.ch));
+  const chN=PS.ch==='r'?'Розница':PS.ch==='o'?'Опт':'';
+  const mix=PS.ch==='all'&&T.r?`<div class="mix"><i style="width:${T.rr/T.r*100}%;background:${CR}"></i><i style="width:${T.ro/T.r*100}%;background:${CO}"></i></div>`:'';
+  $('pTot').innerHTML=
+   `<div><div class="cm-h">Выручка плана без VAT${chN?' · '+chN:''}</div><div class="pt-v">${usd(T.r)}</div><div class="pt-s">${PS.ch==='all'?`<span>Розница <b>${k(T.rr)}</b></span><span>Опт <b>${k(T.ro)}</b></span>`:`<span>доля в общем плане <b>${pct(T.r/(sum(R,'rr')+sum(R,'ro'))||null)}</b></span>`}</div>${mix}</div>`+
+   `<div><div class="cm-h">Валовая прибыль плана</div><div class="pt-v ${T.g<0?'neg':''}">${usd(T.g)}</div><div class="pt-s">${PS.ch==='all'?`<span>Розница <b>${k(T.gr)}</b></span><span>Опт <b>${k(T.go)}</b></span>`:''}</div></div>`+
+   `<div><div class="cm-h">Маржа плана</div><div class="pt-v">${pct(T.r?T.g/T.r:null)}</div><div class="pt-s">${PS.ch==='all'?`<span>Розница <b>${pct(T.rr?T.gr/T.rr:null)}</b></span><span>Опт <b>${pct(T.ro?T.go/T.ro:null)}</b></span>`:''}</div></div>`+
+   `<div><div class="cm-h">План продаж, шт</div><div class="pt-v">${nf(T.q)}</div><div class="pt-s"><span>в день <b>${k(T.r/days)}</b> · <b>${nf(T.q/days,1)}</b> шт</span>${T.sq?`<span>из остатка <b>${nf(T.sq)}</b> шт</span>`:''}</div></div>`;
+  // channel table
+  const chRow=(n,q,r,g,key)=>`<tr data-c="${key}" class="${PS.ch===key?'sel':''}"><td class="l"><span class="dot" style="background:${key==='r'?CR:CO}"></span>${n}</td><td>${nf(q)}</td><td>${r?k(r):'<span class="muted">не задан</span>'}</td><td>${r?k(g):'—'}</td><td>${pct(r?g/r:null)}</td><td>${pct(T.rr+T.ro?r/(T.rr+T.ro):null)}</td></tr>`;
+  const all={q:sum(R,'qr')+sum(R,'qo'),r:T.rr+T.ro,g:T.gr+T.go};
+  $('pCh').innerHTML=`<thead><tr><th class="l">Канал</th><th>Шт</th><th>Выручка</th><th>ВП</th><th>Маржа</th><th>Доля</th></tr></thead><tbody>`+chRow('Розница',T.qr,T.rr,T.gr,'r')+chRow('Опт',T.qo,T.ro,T.go,'o')+
+    `<tr class="tot"><td class="l">Итого</td><td>${nf(all.q)}</td><td>${k(all.r)}</td><td>${k(all.g)}</td><td>${pct(all.r?all.g/all.r:null)}</td><td>100%</td></tr></tbody>`;
+  $('pCh').querySelectorAll('tr[data-c]').forEach(tr=>tr.addEventListener('click',()=>{PS.ch=PS.ch===tr.dataset.c?'all':tr.dataset.c;drawPlan()}));
+  $('pNote').textContent=T.ro?'':'План по опту не задан — в «Остатки по моделям» колонка «% Опт» = 0.';
+  // bars
+  const el=host('pBars');const rows=R.filter(x=>x.r).sort((a,b)=>b.r-a.r);const W=Math.max(300,el.clientWidth),lw=Math.min(150,W*.32),rw=110,bh=20,gap=7,H=rows.length*(bh+gap)+4;
+  const mx=Math.max(1,...rows.map(x=>x.r)),sx=v=>v/mx*(W-lw-rw);
+  el.innerHTML=`<svg width="${W}" height="${H}" role="img" aria-label="Выручка плана по категориям">`+rows.map((x,i)=>{const yy=i*(bh+gap)+2;const a=PS.ch==='o'?0:(PS.ch==='r'?x.r:x.rr),b=PS.ch==='r'?0:(PS.ch==='o'?x.r:x.ro);
+    return `<g data-i="${i}"><text x="${lw-8}" y="${yy+bh/2+4}" text-anchor="end" style="fill:var(--text)">${esc(x.cat.length>lw/6.3?x.cat.slice(0,Math.floor(lw/6.3)-1)+'…':x.cat)}</text><rect x="${lw}" y="${yy}" width="${sx(a)}" height="${bh}" fill="${CR}"/><rect x="${lw+sx(a)}" y="${yy}" width="${sx(b)}" height="${bh}" fill="${CO}"/><text x="${lw+sx(x.r)+6}" y="${yy+bh/2+4}" style="fill:var(--text);font-weight:600">${k(x.r)}</text><text x="${lw+sx(x.r)+58}" y="${yy+bh/2+4}">${pct(x.r/T.r)}</text><rect x="0" y="${yy-2}" width="${W}" height="${bh+4}" fill="transparent"/></g>`}).join('')+`</svg>`;
+  el.querySelectorAll('g[data-i]').forEach(g=>{const x=rows[+g.dataset.i];g.addEventListener('mousemove',e=>{const bb=el.getBoundingClientRect();tip(el,`<b>${esc(x.cat)}</b><br>Выручка ${usd(x.r)} · ${nf(x.q)} шт${PS.ch==='all'?`<br>Розница ${usd(x.rr)} · Опт ${usd(x.ro)}`:''}<br>ВП ${usd(x.g)} · маржа ${pct(x.r?x.g/x.r:null)}`,e.clientX-bb.left,e.clientY-bb.top)});g.addEventListener('mouseleave',()=>{const t=el.querySelector('.tip');if(t)t.hidden=true})});
+  // table
+  const mxr=Math.max(1,...R.map(x=>x.r));const sh=PS.ch==='all';
+  $('pTbl').innerHTML=`<thead><tr><th class="l">Категория</th><th>Остаток, шт</th><th>Остаток, себест.</th><th>% на продажу</th><th>План, шт</th><th>Выручка</th>${sh?'<th>Розница</th><th>Опт</th>':''}<th>ВП</th><th>Маржа</th><th>Доля</th><th>В день</th></tr></thead><tbody>`+
+    [...R].sort((a,b)=>b.r-a.r).map(x=>`<tr><td class="l">${esc(x.cat)}</td><td>${nf(x.sq)}</td><td>${k(x.sc)}</td><td>${x.sp?pct(x.sp):'—'}</td><td>${nf(x.q,x.q%1?1:0)}</td><td class="db"><i style="width:${x.r/mxr*80}%"></i><span>${usd(x.r)}</span></td>${sh?`<td>${x.rr?k(x.rr):'—'}</td><td>${x.ro?k(x.ro):'—'}</td>`:''}<td class="${x.g<0?'neg':''}">${usd(x.g)}</td><td class="${x.g<0?'neg':''}">${pct(x.r?x.g/x.r:null)}</td><td>${pct(T.r?x.r/T.r:null)}</td><td>${k(x.r/days)}</td></tr>`).join('')+
+    `<tr class="tot"><td class="l">Итого</td><td>${nf(T.sq)}</td><td>${k(T.sc)}</td><td>${T.sq?pct(T.q/T.sq):'—'}</td><td>${nf(T.q)}</td><td>${usd(T.r)}</td>${sh?`<td>${k(T.rr)}</td><td>${k(T.ro)}</td>`:''}<td>${usd(T.g)}</td><td>${pct(T.r?T.g/T.r:null)}</td><td>100%</td><td>${k(T.r/days)}</td></tr></tbody>`;
+}
+$('psrc').addEventListener('click',e=>{const b=e.target.closest('button[data-s]');if(b){PS.src=+b.dataset.s;drawPlan()}});
+$('pch').addEventListener('click',e=>{const b=e.target.closest('button[data-c]');if(b){PS.ch=b.dataset.c;drawPlan()}});
 // ---------- вкладки
 function fitFrame(){$('sframe').style.height=Math.max(400,innerHeight-document.querySelector('.top').offsetHeight)+'px'}
 window.addEventListener('resize',()=>{if(!$('stab').hidden)fitFrame()});
-function setTab(t){document.body.classList.toggle('st',t==='st');$('stab').hidden=t!=='st';
+function setTab(t){document.body.classList.toggle('st',t==='st');document.body.classList.toggle('pl',t==='pl');$('stab').hidden=t!=='st';$('ppage').hidden=t!=='pl';if(t==='pl')drawPlan();
   document.querySelectorAll('#vt button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
   if(t==='st'){fitFrame();if(!$('sframe').getAttribute('src'))$('sframe').src='sales.html'}if(t==='pf'&&DATA)render();try{sessionStorage.setItem('pf.tab',t)}catch(e){}}
 $('vt').addEventListener('click',e=>{const b=e.target.closest('button[data-t]');if(b)setTab(b.dataset.t)});
-try{if(sessionStorage.getItem('pf.tab')==='st')setTab('st')}catch(e){}
+try{const tt=sessionStorage.getItem('pf.tab');if(tt==='st'||tt==='pl')setTab(tt)}catch(e){}
 })();
 </script>
 
